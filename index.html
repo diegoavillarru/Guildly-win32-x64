@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Mi Discord de Prueba</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { display: flex; font-family: sans-serif; margin: 0; height: 100vh; background: #313338; color: #fff; overflow: hidden; }
+    #sidebar { width: 260px; background: #2b2d31; padding: 15px; display: flex; flex-direction: column; justify-content: space-between; flex-shrink: 0; }
+    #sidebar-top { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
+    
+    .section-title { font-size: 11px; font-weight: bold; color: #949ba4; text-transform: uppercase; margin: 12px 0 4px 0; display: flex; justify-content: space-between; align-items: center; }
+
+    #chat-area { flex: 1; display: flex; flex-direction: column; padding: 15px; background: #313338; overflow: hidden; transition: all 0.3s ease; }
+    
+    #voice-stage { display: none; flex-direction: column; background: #111214; border-radius: 8px; padding: 15px; margin-bottom: 15px; max-height: 80vh; overflow-y: auto; gap: 15px; border: 1px solid #2b2d31; flex: 1; }
+    #stage-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 8px; border-bottom: 1px solid #2b2d31; }
+    
+    .grid-container { display: flex; flex-wrap: wrap; gap: 10px; }
+    
+    .user-card { background: #2b2d31; border-radius: 8px; height: 160px; width: 100%; max-width: 240px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden; border: 1px solid #35373c; transition: box-shadow 0.1s ease; }
+    .user-card video { width: 100%; height: 100%; object-fit: cover; }
+    
+    .user-avatar-large { width: 100%; height: 100%; background: #5865f2; display: flex; align-items: center; justify-content: center; font-size: 40px; font-weight: bold; background-size: cover; background-position: center; color: #fff; border-radius: 8px; }
+    
+    .card-label { position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.7); padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; z-index: 2; }
+    
+    .btn-fullscreen { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); border: none; color: #fff; border-radius: 4px; padding: 4px 6px; cursor: pointer; font-size: 12px; z-index: 5; display: none; }
+    .user-card:hover .btn-fullscreen, .stream-card:hover .btn-fullscreen { display: block; }
+    .btn-fullscreen:hover { background: rgba(0,0,0,0.9); }
+
+    .user-card.speaking { box-shadow: 0 0 0 3px #23a55a !important; }
+
+    .stream-card { background: #1e1f22; border: 2px solid #5865f2; border-radius: 8px; height: 180px; width: 100%; max-width: 320px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+    .stream-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; z-index: 4; text-align: center; padding: 10px; }
+    .stream-overlay-buttons { display: flex; flex-direction: column; gap: 6px; width: 100%; align-items: center; }
+    .btn-watch { background: #5865f2; color: #fff; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 11px; width: 80%; }
+    .btn-watch:hover { background: #4752c4; }
+
+    .stream-container { position: relative; width: 100%; height: 100%; }
+    .stream-container video { width: 100%; height: 100%; object-fit: cover; }
+    .stream-controls { position: absolute; bottom: 10px; left: 10px; right: 10px; display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 4px; z-index: 3; }
+    .stream-controls input[type=range] { width: 80px; cursor: pointer; accent-color: #5865f2; }
+    
+    .btn-small { background: #5865f2; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
+    .btn-small:hover { background: #4752c4; }
+    .btn-danger { background: #da373c; }
+    .btn-danger:hover { background: #a1282c; }
+
+    #messages-container { display: flex; flex-direction: column; flex: 1; overflow: hidden; gap: 10px; }
+    #messages { flex: 1; overflow-y: auto; background: #383a40; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; gap: 12px; }
+    
+    .channel { cursor: pointer; padding: 8px 12px; margin: 2px 0; border-radius: 4px; background: #35373c; color: #949ba4; font-weight: 500; }
+    .channel:hover { background: #404249; color: #dbdee1; }
+    .channel.active { background: #404249; color: #fff; }
+    
+    input, select { padding: 8px; border: none; border-radius: 4px; background: #1e1f22; color: #fff; width: 100%; margin-top: 3px; font-size: 13px; }
+    label { font-size: 10px; text-transform: uppercase; color: #b5bac1; font-weight: bold; margin-top: 8px; display: block; }
+    
+    .controls-group { display: flex; flex-direction: column; gap: 5px; margin-top: 5px; }
+    button.btn-action { padding: 8px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; transition: background 0.2s; color: white; }
+    button.btn-voice { background: #23a55a; }
+    button.btn-voice:hover { background: #1d8a4b; }
+    button.btn-voice.disconnect { background: #da373c; }
+    button.btn-voice.disconnect:hover { background: #a1282c; }
+    
+    button.btn-media { background: #4e5058; }
+    button.btn-media:hover { background: #6d6f78; }
+    button.btn-media.active { background: #5865f2; }
+
+    #user-bar { background: #232428; padding: 10px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; }
+    .user-info { display: flex; align-items: center; gap: 10px; overflow: hidden; }
+    .avatar-img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: #5865f2; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #fff; flex-shrink: 0; background-size: cover; background-position: center; }
+    .user-name { font-weight: bold; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    
+    .user-controls { display: flex; gap: 2px; }
+    .btn-icon { background: transparent; border: none; color: #b5bac1; cursor: pointer; font-size: 15px; padding: 4px; border-radius: 4px; }
+    .btn-icon:hover { color: #fff; background: #35373c; }
+    .btn-control-muted { background: #da373c !important; color: #fff !important; }
+
+    .msg-item { display: flex; align-items: flex-start; gap: 12px; }
+    .msg-content { display: flex; flex-direction: column; }
+    .msg-header { display: flex; align-items: center; gap: 8px; }
+    .msg-username { font-weight: bold; color: #f2f3f5; font-size: 14px; }
+    .msg-text { color: #dbdee1; font-size: 14px; margin-top: 2px; }
+
+    #profile-modal { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; z-index: 100; }
+    .modal-content { background: #313338; width: 380px; padding: 20px; border-radius: 8px; display: flex; flex-direction: column; gap: 10px; max-height: 90vh; overflow-y: auto; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; }
+    .btn-primary { background: #5865f2; color: #fff; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    .btn-primary:hover { background: #4752c4; }
+    .btn-secondary { background: transparent; color: #fff; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
+    .screen-card.selected {
+      border: 2px solid #23a55a !important;
+      background-color: #3f4147;
+    }
+
+    /* Estilos del modal para Compartir Pantalla */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: rgba(0, 0, 0, 0.75);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+
+    .screen-share-modal {
+      width: 680px;
+      background-color: #111214;
+      border-radius: 8px;
+      padding: 16px;
+      color: #fff;
+      font-family: sans-serif;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .screen-share-tabs {
+      display: flex;
+      gap: 8px;
+      border-bottom: 1px solid #202225;
+      padding-bottom: 12px;
+      position: relative;
+    }
+
+    .tab-btn {
+      background: #2f3136;
+      border: none;
+      color: #b9bbbe;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .tab-btn.active {
+      background-color: #4f545c;
+      color: #fff;
+    }
+
+    .close-modal-btn {
+      margin-left: auto;
+      background: transparent;
+      border: none;
+      color: #b9bbbe;
+      font-size: 22px;
+      cursor: pointer;
+    }
+
+    .screen-share-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      max-height: 350px;
+      overflow-y: auto;
+    }
+
+    .screen-card {
+      background-color: #2f3136;
+      border-radius: 6px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      cursor: pointer;
+      transition: transform 0.1s, background-color 0.1s;
+    }
+
+    .screen-card:hover {
+      background-color: #3f4147;
+    }
+
+    .screen-share-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: #2f3136;
+      padding: 10px 14px;
+      border-radius: 6px;
+    }
+
+    .quality-info {
+      display: flex;
+      flex-direction: column;
+      font-size: 13px;
+      gap: 2px;
+    }
+
+    .quality-info span {
+      color: #b9bbbe;
+      font-size: 11px;
+    }
+
+    .screen-share-actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .qual-btn, .settings-btn {
+      background: #202225;
+      border: none;
+      color: #fff;
+      padding: 6px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .qual-btn.active {
+      background-color: #5865f2;
+    }
+  </style>
+</head>
+<body>
+  <div id="sidebar">
+    <div id="sidebar-top">
+      <h3>Canales Texto</h3>
+      <div id="chan-general" class="channel active" onclick="switchChannel('general')"># general</div>
+      <div id="chan-gaming" class="channel" onclick="switchChannel('gaming')"># gaming</div>
+      
+      <div class="section-title">
+        <span>Canales Voz</span>
+      </div>
+      
+      <div id="vchan-General" class="channel active" onclick="selectVoiceChannel('General')">🔊 General</div>
+      <div id="vchan-Gaming" class="channel" onclick="selectVoiceChannel('Gaming')">🔊 Gaming</div>
+      <div id="vchan-Musica" class="channel" onclick="selectVoiceChannel('Musica')">🔊 Música</div>
+      <div id="vchan-PeliculasManga" class="channel" onclick="selectVoiceChannel('PeliculasManga')">🔊 Películas/Manga</div>
+
+      <div class="controls-group">
+        <button id="voice-btn" class="btn-action btn-voice" onclick="toggleVoice()">🔊 Conectar a Voz</button>
+        <button id="camera-btn" class="btn-action btn-media" onclick="toggleCamera()" disabled>📹 Activar Cámara</button>
+        
+        <button id="screen-btn" class="btn-action btn-media" onclick="openScreenModal()">🖥️ Compartir Pantalla</button>
+      </div>
+      <p id="voice-status" style="font-size: 12px; color: #b5bac1; margin-top: 2px;"></p>
+
+      <label for="audio-input">Entrada Audio (Mic):</label>
+      <select id="audio-input" onchange="changeAudioInput(this.value)">
+        <option value="">Cargando micrófonos...</option>
+      </select>
+
+      <label for="video-input">Cámara:</label>
+      <select id="video-input" onchange="changeVideoInput(this.value)">
+        <option value="">Cargando cámaras...</option>
+      </select>
+
+      <label for="audio-output">Salida Audio:</label>
+      <select id="audio-output" onchange="changeAudioOutput(this.value)">
+        <option value="">Cargando dispositivos...</option>
+      </select>
+    </div>
+
+    <div id="user-bar">
+      <div class="user-info">
+        <div id="my-avatar" class="avatar-img">U</div>
+        <span id="my-username" class="user-name">Cargando...</span>
+      </div>
+      <div class="user-controls">
+        <button id="mute-btn" class="btn-icon" title="Silenciar" onclick="toggleMute()">🎤</button>
+        <button id="deafen-btn" class="btn-icon" title="Sordina" onclick="toggleDeafen()">🎧</button>
+        <button class="btn-icon" title="Ajustes de Perfil" onclick="openProfileModal()">⚙️</button>
+      </div>
+    </div>
+  </div>
+  
+  <div id="chat-area">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+      <h3 id="current-channel" style="margin: 0;"># general</h3>
+      <button class="btn-small" onclick="toggleChatExpand()" title="Minimizar / Expandir Chat">💬 Alternar Chat</button>
+    </div>
+    
+    <div id="voice-stage">
+      <div id="stage-header">
+        <h4 id="voice-channel-title" style="margin: 0;">🔊 Canal de Voz</h4>
+      </div>
+
+      <div class="section-title">Participantes</div>
+      <div id="users-grid" class="grid-container"></div>
+
+      <div class="section-title">Transmisiones en Vivo</div>
+      <div id="streams-grid" class="grid-container"></div>
+    </div>
+
+    <div id="messages-container">
+      <div id="messages"></div>
+      <input type="text" id="msg-input" placeholder="Escribe un mensaje y presiona Enter..." onkeydown="if(event.key==='Enter') sendMsg()">
+    </div>
+  </div>
+
+  <!-- Modal de Perfil -->
+  <div id="profile-modal">
+    <div class="modal-content">
+      <h3>Editar Perfil</h3>
+      <div>
+        <label for="input-username">Nombre de Usuario:</label>
+        <input type="text" id="input-username" placeholder="Tu nombre...">
+      </div>
+      
+      <div>
+        <label for="input-avatar-chat">URL Avatar (Chat de Texto):</label>
+        <input type="text" id="input-avatar-chat" placeholder="https://..." oninput="previewAvatars()">
+      </div>
+      <div>
+        <label>O subir imagen para Chat:</label>
+        <input type="file" id="file-avatar-chat" accept="image/*" onchange="handleFileChat(event)">
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 11px; color:#b5bac1;">Vista previa Chat:</span>
+        <div id="preview-chat" class="avatar-img">U</div>
+      </div>
+
+      <div>
+        <label for="input-avatar-voice">URL Avatar (Cuadrícula de Voz):</label>
+        <input type="text" id="input-avatar-voice" placeholder="https://..." oninput="previewAvatars()">
+      </div>
+      <div>
+        <label>O subir imagen para Voz:</label>
+        <input type="file" id="file-avatar-voice" accept="image/*" onchange="handleFileVoice(event)">
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 11px; color:#b5bac1;">Vista previa Voz:</span>
+        <div id="preview-voice" class="user-avatar-large" style="width: 36px; height: 36px; font-size: 14px;">U</div>
+      </div>
+
+      <div class="setting-group" style="margin-top: 15px;">
+        <label style="display: flex; align-items: center; cursor: pointer; color: #dbdee1; font-size: 14px; font-weight: 500;">
+          <input type="checkbox" id="hardware-accel-toggle" style="margin-right: 10px; width: 16px; height: 16px; accent-color: #5865f2;">
+          Aceleración por hardware
+        </label>
+        <span style="font-size: 12px; color: #949ba4; margin-top: 4px; display: block;">
+          Usa la GPU para mejorar el rendimiento de video y transmisiones. Requiere reiniciar.
+        </span>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="closeProfileModal()">Cancelar</button>
+        <button id="btn-guardar-cambios" class="btn-primary" onclick="saveProfile()">Guardar Cambios</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal para Compartir Pantalla -->
+  <div id="screenShareModal" class="modal-overlay" style="display: none;">
+    <div class="screen-share-modal">
+      <div class="screen-share-tabs">
+        <button class="tab-btn active">Aplicaciones</button>
+        <button class="tab-btn">Pantalla completa</button>
+        <button class="tab-btn">Dispositivos</button>
+        <button class="close-modal-btn" id="closeScreenModal">&times;</button>
+      </div>
+
+      <div class="screen-share-grid" id="screenGrid">
+        <!-- Se rellenará dinámicamente con Electron -->
+      </div>
+
+      <div class="screen-share-footer">
+        <div class="quality-info">
+          <label for="modal-screen-quality" style="font-size: 10px; color: #b5bac1; margin: 0; text-transform: uppercase;">Calidad de Pantalla</label>
+          <select id="modal-screen-quality" style="background: #1e1f22; color: #fff; border: none; padding: 4px; border-radius: 4px; font-size: 13px; margin-top: 2px;">
+            <option value="720_30">720p (30 fps)</option>
+            <option value="720_60">720p (60 fps)</option>
+            <option value="1080_30" selected>1080p (30 fps)</option>
+            <option value="1080_60">1080p (60 fps)</option>
+            <option value="original_30">Resolución Original (30 fps)</option>
+            <option value="original_60">Resolución Original (60 fps)</option>
+          </select>
+        </div>
+        <div>
+          <button class="btn-primary" id="footer-share-btn" style="padding: 8px 16px; font-weight: bold; cursor: pointer;">🖥️ Compartir Pantalla</button>
+        </div>
+      </div>
+
+  <script src="video-player.js"></script>
+  <script src="music-bot.js"></script>
+  <script src="http://localhost:3000/socket.io/socket.io.js"></script>
+
+  <script src="jsaudio-sounds.js"></script>
+  <script src="jsprofile.js"></script>
+  <script src="jsapp.js"></script>
+  <script src="jswebrtc.js"></script>
+
+ <script>
+    const screenShareModal = document.getElementById('screenShareModal');
+    const closeScreenModalBtn = document.getElementById('closeScreenModal');
+    const tabBtns = document.querySelectorAll('.screen-share-tabs .tab-btn');
+    const footerShareBtn = document.getElementById('footer-share-btn');
+    
+    let allSources = [];
+    let currentTabFilter = 'window'; // 'window' para Aplicaciones, 'screen' para Pantalla completa
+    let selectedSourceId = null;     // ID de la fuente seleccionada
+
+    // Asignar eventos a las pestañas
+    tabBtns.forEach((btn, index) => {
+      btn.addEventListener('click', () => {
+        tabBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        if (index === 0) {
+          currentTabFilter = 'window';
+        } else if (index === 1) {
+          currentTabFilter = 'screen';
+        } else {
+          currentTabFilter = 'device';
+        }
+
+        renderSources();
+      });
+    });
+
+    function renderSources() {
+      const grid = document.getElementById('screenGrid');
+      if (!grid) return;
+
+      grid.innerHTML = '';
+
+      if (currentTabFilter === 'device') {
+        grid.innerHTML = '<p style="color: #b9bbbe; font-size: 13px; padding: 10px;">No hay dispositivos de captura adicionales disponibles.</p>';
+        return;
+      }
+
+      const filteredSources = allSources.filter(source => {
+        if (currentTabFilter === 'screen') {
+          return source.id.startsWith('screen:');
+        } else {
+          return source.id.startsWith('window:');
+        }
+      });
+
+      if (filteredSources.length === 0) {
+        grid.innerHTML = `<p style="color: #b9bbbe; font-size: 13px; padding: 10px;">No se encontraron elementos en esta categoría.</p>`;
+        return;
+      }
+
+      filteredSources.forEach(source => {
+        const card = document.createElement('div');
+        card.className = 'screen-card';
+        
+        // Si ya estaba seleccionada anteriormente, mantener el borde verde
+        if (source.id === selectedSourceId) {
+          card.classList.add('selected');
+        }
+
+        card.innerHTML = `
+          <div style="height: 130px; background: #1e1f22; border-radius: 4px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+            <img src="${source.thumbnail}" style="width: 100%; height: 100%; object-fit: contain;" />
+          </div>
+          <span style="font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #dbdee1;" title="${source.name}">${source.name}</span>
+        `;
+
+        // Al hacer clic, solo seleccionamos (marco verde) en lugar de cerrar el modal
+        card.addEventListener('click', () => {
+          document.querySelectorAll('.screen-card').forEach(c => c.classList.remove('selected'));
+          card.classList.add('selected');
+          selectedSourceId = source.id;
+        });
+
+        grid.appendChild(card);
+      });
+    }
+
+    // Evento del botón de compartir en el pie del modal
+    if (footerShareBtn) {
+      footerShareBtn.addEventListener('click', () => {
+        if (!selectedSourceId) {
+          alert('Por favor selecciona una aplicación o pantalla primero.');
+          return;
+        }
+
+        // Obtener la calidad seleccionada del <select>
+        const qualitySelect = document.getElementById('modal-screen-quality');
+        const selectedQuality = qualitySelect ? qualitySelect.value : '1080_30';
+
+        // Llamar a tu función de transmisión existente pasándole la fuente y opcionalmente la calidad
+        if (typeof startScreenShare === 'function') {
+          startScreenShare(selectedSourceId, selectedQuality);
+        } else if (typeof selectFuenteYTransmitir === 'function') {
+          selectFuenteYTransmitir(selectedSourceId, selectedQuality);
+        }
+
+        closeScreenModal();
+      });
+    }
+
+    async function openScreenModal() {
+      if (screenShareModal) {
+        screenShareModal.style.display = 'flex';
+      }
+
+      selectedSourceId = null; // Reiniciar selección al abrir
+      const grid = document.getElementById('screenGrid');
+      if (!grid) return;
+
+      grid.innerHTML = '<p style="color: #b9bbbe; font-size: 13px; padding: 10px;">Buscando ventanas y pantallas...</p>';
+
+      try {
+        allSources = await window.require('electron').ipcRenderer.invoke('get-desktop-sources');
+        renderSources();
+      } catch (error) {
+        console.error('Error al obtener fuentes de pantalla:', error);
+        grid.innerHTML = '<p style="color: #da373c; font-size: 13px; padding: 10px;">Error al cargar fuentes.</p>';
+      }
+    }
+
+    function closeScreenModal() {
+      if (screenShareModal) {
+        screenShareModal.style.display = 'none';
+      }
+    }
+
+    if (closeScreenModalBtn) {
+      closeScreenModalBtn.addEventListener('click', closeScreenModal);
+    }
+
+    if (screenShareModal) {
+      screenShareModal.addEventListener('click', (e) => {
+        if (e.target === screenShareModal) {
+          closeScreenModal();
+        }
+      });
+    }
+  </script>
+  </script>
+  </script>
+</body>
+</html>
